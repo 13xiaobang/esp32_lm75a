@@ -6,5 +6,7 @@ void lm75a_init();
 void lm75a_deinit();
 void lm75a_set_tos(int tos);
 void lm75a_set_thys(int thys);
-
+void lm75a_get_tos();
+void lm75a_get_thys();
+void lm75a_set_int(int en);
 #endif

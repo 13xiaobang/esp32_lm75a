@@ -325,6 +325,8 @@ int lm75a_read_temperature()
 }
 
 #define GPIO_INPUT_IO_0     4
+#define GPIO_OUTPUT_IO_0 2
+#define GPIO_OUTPUT_PIN_SEL (1ULL<<GPIO_OUTPUT_IO_0)
 #define GPIO_INPUT_PIN_SEL  (1ULL<<GPIO_INPUT_IO_0)
 #define ESP_INTR_FLAG_DEFAULT 0
 
@@ -337,76 +339,105 @@ static void IRAM_ATTR gpio_isr_handler(void* arg)
     xQueueSendFromISR(gpio_evt_queue, &gpio_num, NULL);
 }
 
-static void gpio_task_example(void* arg)
+static int gpio_int_task_enable = 0;
+static TaskHandle_t gpio_int_task_handle = NULL;
+static void gpio_int_task(void* arg)
 {
     uint32_t io_num;
-    for(;;) {
+    gpio_int_task_enable = 1;
+    while(gpio_int_task_enable) {
         if(xQueueReceive(gpio_evt_queue, &io_num, portMAX_DELAY)) {
-            printf("GPIO[%d] intr, val: %d\n\n", io_num, gpio_get_level(io_num));
+           
+            //read temperature to clean int;
+            if(io_num == GPIO_INPUT_IO_0) {
+                printf("GPIO[%d] intr, val: %d\n\n", io_num, gpio_get_level(io_num));
+                lm75a_read_temperature();
+            }
         }
     }
+    printf("quit gpio_int_task\n");
+    if(gpio_evt_queue) {
+        vQueueDelete(gpio_evt_queue);
+        gpio_evt_queue =NULL;
+    }
+    gpio_int_task_handle = NULL;
+    vTaskDelete(NULL);
+
 }
 
 void init_os_gpio()
 {
     printf("init_os_gpio!\n");
+
+    if(gpio_evt_queue == NULL)
+        gpio_evt_queue = xQueueCreate(10, sizeof(uint32_t));
+
+    if(gpio_int_task_handle==NULL) {
+        xTaskCreate(gpio_int_task, "gpio_int_task", 2048, NULL, 10, &gpio_int_task_handle);
+        
+        //install gpio isr service
+        gpio_install_isr_service(ESP_INTR_FLAG_DEFAULT);
+        //hook isr handler for specific gpio pin again
+        gpio_isr_handler_add(GPIO_INPUT_IO_0, gpio_isr_handler, (void*) GPIO_INPUT_IO_0);
+    }
+}
+
+static void deinit_os_gpio()
+{
+    printf("deinit_os_gpio!\n");
+
+    if(gpio_int_task_handle) {
+        gpio_isr_handler_remove(GPIO_INPUT_IO_0);
+        gpio_uninstall_isr_service();
+        gpio_int_task_enable = 0;
+        int io = 0;
+        xQueueSend(gpio_evt_queue, &io , 0); // send a fake signal to quit task.
+    }
+}
+
+static void lm75a_vcc_enable()
+{
     gpio_config_t io_conf;
-    io_conf.intr_type = GPIO_PIN_INTR_ANYEDGE;
+    //enable output for vcc
+    io_conf.intr_type = GPIO_PIN_INTR_DISABLE;
+    io_conf.mode = GPIO_MODE_OUTPUT;
+    io_conf.pin_bit_mask = GPIO_OUTPUT_PIN_SEL;
+    io_conf.pull_down_en = 0;
+    io_conf.pull_up_en = 0;
+    gpio_config(&io_conf);
+
+    //enable input for interrupt
+    io_conf.intr_type = GPIO_PIN_INTR_NEGEDGE;//GPIO_PIN_INTR_ANYEDGE;
     io_conf.pin_bit_mask = GPIO_INPUT_PIN_SEL;
     io_conf.mode = GPIO_MODE_INPUT;
     io_conf.pull_up_en = 1;
     gpio_set_pull_mode(GPIO_INPUT_IO_0, GPIO_PULLUP_ONLY);
     gpio_config(&io_conf);
-
-    if(gpio_evt_queue == NULL)
-        gpio_evt_queue = xQueueCreate(10, sizeof(uint32_t));
-    //start gpio task
-    xTaskCreate(gpio_task_example, "gpio_task_example", 2048, NULL, 10, NULL);
     
-    //install gpio isr service
-    gpio_install_isr_service(ESP_INTR_FLAG_DEFAULT);
-    //hook isr handler for specific gpio pin again
-    gpio_isr_handler_add(GPIO_INPUT_IO_0, gpio_isr_handler, (void*) GPIO_INPUT_IO_0);
+    gpio_set_level(GPIO_OUTPUT_IO_0, 1);
+}
+
+static void lm75a_vcc_disable()
+{
+    gpio_set_level(GPIO_OUTPUT_IO_0, 0);
 }
 
 void lm75a_init()
 {
+    lm75a_vcc_enable();
     i2c_master_init();
-    init_os_gpio();
-#if 0
-    uint16_t  data_rd;
-    uint16_t tmp;
-        printf("app_main inited0~\n");
-    i2c_example_master_init();
-        printf("app_main inited1~\n");
-    //xTaskCreate(i2c_test_task, "i2c_test_task_0", 1024 * 2, (void* ) 0, 10, NULL);
-    //xTaskCreate(i2c_test_task, "i2c_test_task_1", 1024 * 2, (void* ) 1, 10, NULL);
-    while(1) {
-        i2c_example_master_read_slave(I2C_EXAMPLE_MASTER_NUM, &data_rd, 2);
-        tmp = (data_rd & 0xff);
-        printf("data_rd=%u", tmp);
-        if((data_rd>>8) & 128)
-           printf(".5\n");
-	else
-           printf("\n");
-       vTaskDelay( 1000/portTICK_RATE_MS);
-    }
-#endif
 }
 
 void lm75a_deinit()
 {
+    deinit_os_gpio();
     i2c_driver_delete(I2C_MASTER_NUM);
+    lm75a_vcc_disable();
 }
 
 void lm75a_set_tos(int tos)
 {
     uint8_t buf[4];
-#if 0
-    //set interrupt mode first:
-    buf[0] = 0x1;
-    buf[1] = 0x3;
-#endif
     printf("lm75a_set_tos: %d\n" ,tos);
     // set Tos:
     buf[0] = 0x3;
@@ -417,16 +448,60 @@ void lm75a_set_tos(int tos)
 
 void lm75a_set_thys(int thys)
 {
-        uint8_t buf[4];
-#if 0
-    //set interrupt mode first:
-    buf[0] = 0x1;
-    buf[1] = 0x3;
-#endif
+    uint8_t buf[4];
     printf("lm75a_set_thys: %d\n" ,thys);
     // set Thyst:
     buf[0] = 0x2;
     buf[1] = (thys&0xff);
     buf[2] = 0;
     i2c_master_write_slave(I2C_MASTER_NUM, buf, 3);
+}
+
+void lm75a_get_tos()
+{
+    uint8_t buf[4];
+    float tmp;
+    buf[0] = 0x3;
+    i2c_master_write_slave(I2C_MASTER_NUM, buf, 1);
+    i2c_master_read_slave(I2C_MASTER_NUM, buf, 2);
+    tmp = buf[0];
+    if(buf[1]& 128)
+            tmp+=0.5;
+
+    printf("lm75a_get_tos: %.1f\n" , tmp);
+}
+
+void lm75a_get_thys()
+{
+    uint8_t buf[4];
+    float tmp;
+    buf[0] = 0x2;
+    i2c_master_write_slave(I2C_MASTER_NUM, buf, 1);
+    i2c_master_read_slave(I2C_MASTER_NUM, buf, 2);
+    tmp = buf[0];
+    if(buf[1]& 128)
+            tmp+=0.5;
+
+    printf("lm75a_get_thys: %.1f\n" , tmp);
+}
+
+void lm75a_set_int(int en)
+{
+    uint8_t buf[2];
+    en = !!en;
+    if(en) {
+        init_os_gpio();
+        printf("lm75a_set_int: %d\n" , en);
+        buf[0] = 0x1;
+        buf[1] = (1<<1); // D1 set to 1;
+        i2c_master_write_slave(I2C_MASTER_NUM, buf, 2);
+    }
+    else {
+        printf("lm75a_set_int: %d\n" ,en);
+        deinit_os_gpio();
+        buf[0] = 0x1;
+        buf[1] = 0;
+        i2c_master_write_slave(I2C_MASTER_NUM, buf, 2);
+    }
+    
 }
