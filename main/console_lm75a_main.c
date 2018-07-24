@@ -21,7 +21,7 @@
 #include "nvs.h"
 #include "nvs_flash.h"
 
-static const char* TAG = "example";
+static const char* TAG = "lm75a";
 
 /* Console command history can be stored to and loaded from a file.
  * The easiest way to do this is to use FATFS filesystem on top of
@@ -32,12 +32,11 @@ static const char* TAG = "example";
 #define MOUNT_PATH "/data"
 #define HISTORY_PATH MOUNT_PATH "/history.txt"
 
-static void initialize_filesystem()
-{
+static void initialize_filesystem() {
     static wl_handle_t wl_handle;
     const esp_vfs_fat_mount_config_t mount_config = {
-            .max_files = 4,
-            .format_if_mount_failed = true
+        .max_files = 4,
+        .format_if_mount_failed = true
     };
     esp_err_t err = esp_vfs_fat_spiflash_mount(MOUNT_PATH, "storage", &mount_config, &wl_handle);
     if (err != ESP_OK) {
@@ -47,8 +46,7 @@ static void initialize_filesystem()
 }
 #endif // CONFIG_STORE_HISTORY
 
-static void initialize_nvs()
-{
+static void initialize_nvs() {
     esp_err_t err = nvs_flash_init();
     if (err == ESP_ERR_NVS_NO_FREE_PAGES) {
         ESP_ERROR_CHECK( nvs_flash_erase() );
@@ -57,8 +55,7 @@ static void initialize_nvs()
     ESP_ERROR_CHECK(err);
 }
 
-static void initialize_console()
-{
+static void initialize_console() {
     /* Disable buffering on stdin and stdout */
     setvbuf(stdin, NULL, _IONBF, 0);
     setvbuf(stdout, NULL, _IONBF, 0);
@@ -70,17 +67,17 @@ static void initialize_console()
 
     /* Install UART driver for interrupt-driven reads and writes */
     ESP_ERROR_CHECK( uart_driver_install(CONFIG_CONSOLE_UART_NUM,
-            256, 0, 0, NULL, 0) );
+                                         256, 0, 0, NULL, 0) );
 
     /* Tell VFS to use UART driver */
     esp_vfs_dev_uart_use_driver(CONFIG_CONSOLE_UART_NUM);
 
     /* Initialize the console */
     esp_console_config_t console_config = {
-            .max_cmdline_args = 8,
-            .max_cmdline_length = 256,
+        .max_cmdline_args = 8,
+        .max_cmdline_length = 256,
 #if CONFIG_LOG_COLORS
-            .hint_color = atoi(LOG_COLOR_CYAN)
+        .hint_color = atoi(LOG_COLOR_CYAN)
 #endif
     };
     ESP_ERROR_CHECK( esp_console_init(&console_config) );
@@ -104,8 +101,7 @@ static void initialize_console()
 #endif
 }
 
-void app_main()
-{
+void app_main() {
     initialize_nvs();
 
 #if CONFIG_STORE_HISTORY
@@ -116,8 +112,7 @@ void app_main()
 
     /* Register commands */
     esp_console_register_help_command();
-    register_system();
-    register_wifi();
+
     register_lm75a_cmd();
     /* Prompt to be printed before each line.
      * This can be customized, made dynamic, etc.
