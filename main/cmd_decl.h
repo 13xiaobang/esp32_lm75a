@@ -7,11 +7,4 @@
    CONDITIONS OF ANY KIND, either express or implied.
 */
 #pragma once
-
-// Register system functions
-void register_system();
-
-// Register WiFi functions
-void register_wifi();
-
 void register_lm75a_cmd();
