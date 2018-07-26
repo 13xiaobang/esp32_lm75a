@@ -8,24 +8,25 @@
 #include "driver/i2c.h"
 
 #define I2C_MASTER_NUM              I2C_NUM_0
-#define I2C_MASTER_SCL_IO           19               /*!< gpio number for I2C master clock */
-#define I2C_MASTER_SDA_IO           18               /*!< gpio number for I2C master data  */
-#define I2C_MASTER_FREQ_HZ          400000           /*!< I2C master clock frequency */
-#define I2C_MASTER_TX_BUF_DISABLE   0                /*!< I2C master do not need buffer */
-#define I2C_MASTER_RX_BUF_DISABLE   0                /*!< I2C master do not need buffer */
-#define LM75A_SLAVE_ADDR            0x48             /*!< LM75A slave address, you can set any 7bit value */
-#define ACK_VAL                     0x0              /*!< I2C ack value */
-#define NACK_VAL                    0x1              /*!< I2C nack value */
-#define WRITE_BIT                   I2C_MASTER_WRITE /*!< I2C master write */
-#define READ_BIT                    I2C_MASTER_READ  /*!< I2C master read */
-#define ACK_CHECK_EN                0x1              /*!< I2C master will check ack from slave*/
-#define ACK_CHECK_DIS               0x0              /*!< I2C master will not check ack from slave */
+#define I2C_MASTER_SCL_IO           CONFIG_EXAMPLE_I2C_SCL  /*!< gpio number for I2C master clock */
+#define I2C_MASTER_SDA_IO           CONFIG_EXAMPLE_I2C_SDA  /*!< gpio number for I2C master data  */
+#define I2C_MASTER_FREQ_HZ          CONFIG_I2C_TRANS_SPEED  /*!< I2C master clock frequency */
+#define I2C_MASTER_TX_BUF_DISABLE   0                       /*!< I2C master do not need buffer */
+#define I2C_MASTER_RX_BUF_DISABLE   0                       /*!< I2C master do not need buffer */
+#define LM75A_SLAVE_ADDR            CONFIG_LM75A_SLAVE_ADDR /*!< LM75A slave address, you can set any 7bit value */
+#define ACK_VAL                     0x0                     /*!< I2C ack value */
+#define NACK_VAL                    0x1                     /*!< I2C nack value */
+#define WRITE_BIT                   I2C_MASTER_WRITE        /*!< I2C master write */
+#define READ_BIT                    I2C_MASTER_READ         /*!< I2C master read */
+#define ACK_CHECK_EN                0x1                     /*!< I2C master will check ack from slave*/
+#define ACK_CHECK_DIS               0x0                     /*!< I2C master will not check ack from slave */
 
-#define GPIO_INPUT_IO_0 4
-#define GPIO_OUTPUT_IO_0 2
-#define GPIO_OUTPUT_PIN_SEL (1ULL<<GPIO_OUTPUT_IO_0)
-#define GPIO_INPUT_PIN_SEL  (1ULL<<GPIO_INPUT_IO_0)
-#define ESP_INTR_FLAG_DEFAULT 0
+#define GPIO_INPUT_IO_0             CONFIG_LM75A_OS_PIN
+#define GPIO_OUTPUT_IO_0            CONFIG_LM75A_VCC_PIN
+#define GPIO_OUTPUT_PIN_SEL         (1ULL<<GPIO_OUTPUT_IO_0)
+#define GPIO_INPUT_PIN_SEL          (1ULL<<GPIO_INPUT_IO_0)
+#define ESP_INTR_FLAG_DEFAULT       0
+
 static xQueueHandle gpio_evt_queue = NULL;
 static int gpio_int_task_enable = 0;
 static TaskHandle_t gpio_int_task_handle = NULL;

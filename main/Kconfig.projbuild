@@ -8,4 +8,47 @@ config STORE_HISTORY
         command history. If this option is enabled, initalizes a FAT filesystem
         and uses it to store command history.
 
+config EXAMPLE_I2C_SCL
+    int "Gpio num for I2C SCL"
+    range 0 40
+    default 19
+    help
+        Select the gpio num for I2C SCL bus.
+
+config EXAMPLE_I2C_SDA
+    int "Gpio num for I2C SDA"
+    range 0 40
+    default 18
+    help
+        Select the gpio num for I2C SDA bus.
+
+config I2C_TRANS_SPEED
+    int "Set speed for I2C 100~400k"
+    range 100000 400000
+    default 400000
+    help
+        Set the I2C speed.
+
+config LM75A_OS_PIN
+    int "Gpio num for LM75A OS pin"
+    range 0 40
+    default 4
+    help
+        Set gpio num for LM75A OS pin.
+
+config LM75A_VCC_PIN
+    int "Gpio num for LM75A VCC pin"
+    range 0 40
+    default 2
+    help
+        Set gpio num for LM75A VCC pin.
+
+config LM75A_SLAVE_ADDR
+    hex "LM75A i2c slave address(default 0x48)"
+    range 0 0x80
+    default 0x48
+    help
+        LM75A i2c slave address(default 0x48).
+        Notice: if address pin is not set, slave
+        address is 0x48, see the datasheet.
 endmenu
